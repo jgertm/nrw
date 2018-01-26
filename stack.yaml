@@ -1,0 +1,11 @@
+resolver: lts-10.3
+
+packages:
+- .
+
+extra-deps:
+- regex-1.0.1.3
+- regex-with-pcre-1.0.1.3
+
+nix:
+  pure: true
