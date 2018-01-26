@@ -9,3 +9,6 @@ extra-deps:
 
 nix:
   pure: true
+  packages:
+  - llvm_39
+  
