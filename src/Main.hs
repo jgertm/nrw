@@ -5,6 +5,7 @@ module Main where
 import           Universum
 
 import           Options.Applicative
+import           Text.RE.PCRE.Text
 
 main :: IO ()
 main = do
@@ -15,16 +16,32 @@ main = do
     exitSuccess
 
   -- read stdin
-  input <- toText <$> getContents
-  let candidates = lines input
+  input <- lines . toText <$> getContents
+
+  -- apply mask
+  let candidates = case maskRx args of
+        Nothing -> input
+        Just re -> filter (not . null)
+                 . catMaybes
+                 . map (\line -> matchedText $ line ?=~ re)
+                 $ input
 
   -- render results
   traverse_ putStrLn candidates
-data Options = Options { version :: Bool }
+
+
+
+-- COMMAND LINE ARGUMENTS
+
+data Options = Options { version :: Bool
+                       , maskRx  :: Maybe RE
+                       }
 
 options :: Parser Options
 options = Options
   <$> switch (long "version" <> short 'v' <> help "Show version")
+  <*> option (eitherReader $ \rxStr -> compileRegex rxStr >>= pure . Just)
+        (long "mask" <> short 'm' <> help "masking (PCRE) regex" <> metavar "REGEX" <> value Nothing)
 
 options' = info (options <**> helper)
   (fullDesc <> progDesc "interactively filter STDIN" <> header "nrw")
