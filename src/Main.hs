@@ -6,6 +6,8 @@ import           Universum
 
 import           Options.Applicative
 import           Text.RE.PCRE.Text
+import           Text.RE.Replace
+
 
 main :: IO ()
 main = do
@@ -22,8 +24,9 @@ main = do
   let candidates = case maskRx args of
         Nothing -> input
         Just re -> filter (not . null)
-                 . catMaybes
-                 . map (\line -> matchedText $ line ?=~ re)
+                 . map (\line -> maybe mempty capturedText
+                               . (safeHead . snd <=< matchCaptures)
+                               $ line ?=~ re)
                  $ input
 
   -- render results
