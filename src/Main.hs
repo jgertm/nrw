@@ -29,11 +29,10 @@ main = do
 
   -- apply mask
   let candidates = case maskRx args of
-        Nothing -> input
-        Just re -> filter (not . null)
-                 . map (\line -> maybe mempty capturedText
-                               . (safeHead . snd <=< matchCaptures)
-                               $ line ?=~ re)
+        Nothing -> map (\c -> (c,c)) input
+        Just re -> catMaybes
+                 . map (\line -> let match = map capturedText . safeHead . snd <=< matchCaptures $ line ?=~ re
+                                 in  sequenceA (line, match))
                  $ input
 
   -- render UI
@@ -83,7 +82,7 @@ data Name = Query
           deriving (Show, Eq, Ord)
 
 data AppState = AppState { query   :: Editor Text Name
-                         , results :: List Name Text
+                         , results   :: List Name (Text,Text)
                          , selection :: Maybe Text
                          }
 
@@ -93,7 +92,7 @@ handleEvent st (VtyEvent ev@(EvKey k ms)) = case (k,ms) of
   (KChar 'c', [MCtrl]) -> halt st
   (KEnter, [])         -> case listSelectedElement $ results st of
       Nothing     -> continue st
-      Just (_, e) -> halt $ st { selection = Just e }
+      Just (_, (e,_)) -> halt $ st { selection = Just e }
   (KUp, [])            -> list
   (KDown, [])          -> list
   _                    -> editor
@@ -108,4 +107,4 @@ handleEvent st _ = continue st
 drawUI :: AppState -> [Widget Name]
 drawUI st = [ searchBox <=> hBorder <=> resultsList ]
   where searchBox = (withAttr "prompt" $ txt "λ ") <+> renderEditor (txt . unlines) True (query st)
-        resultsList = padLeftRight 2 $ renderList (\sel -> bool identity (withAttr "selection") sel . txt) False (results st)
+        resultsList = padLeftRight 2 $ renderList (\sel -> bool identity (withAttr "selection") sel . txt) False (map snd . results $ st)
