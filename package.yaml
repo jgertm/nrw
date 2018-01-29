@@ -13,10 +13,13 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
+  - brick
   - optparse-applicative
   - regex
   - regex-with-pcre
   - universum
+  - unix
+  - vty
 
 executables:
   nrw:
@@ -24,3 +27,5 @@ executables:
     main:             Main.hs
     ghc-options:
     - -fllvm
+    - -threaded
+    - -W
