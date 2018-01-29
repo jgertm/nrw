@@ -39,11 +39,14 @@ main = do
   -- render UI
   let st = AppState { query = editorText Query (Just 1) mempty
                     , results = list Results (foldMap one candidates) 1
+                    , selection = Nothing
                     }
-  withFile "/dev/tty" ReadMode $ \h -> do
+  st' <- withFile "/dev/tty" ReadMode $ \h -> do
     fd <- handleToFd h
     cfg <- standardIOConfig
     customMain (mkVty $ cfg {inputFd = Just fd}) Nothing app st
+
+  whenJust (selection st') putStrLn
 
   exitSuccess
 
@@ -81,13 +84,16 @@ data Name = Query
 
 data AppState = AppState { query   :: Editor Text Name
                          , results :: List Name Text
+                         , selection :: Maybe Text
                          }
 
 handleEvent :: AppState -> BrickEvent Name Event -> EventM Name (Next AppState)
 handleEvent st (VtyEvent ev@(EvKey k ms)) = case (k,ms) of
   (KEsc, [])           -> halt st
   (KChar 'c', [MCtrl]) -> halt st
-  (KEnter, [])         -> continue $ undefined -- TODO
+  (KEnter, [])         -> case listSelectedElement $ results st of
+      Nothing     -> continue st
+      Just (_, e) -> halt $ st { selection = Just e }
   (KUp, [])            -> list
   (KDown, [])          -> list
   _                    -> editor
@@ -97,6 +103,7 @@ handleEvent st (VtyEvent ev@(EvKey k ms)) = case (k,ms) of
        list = do
          r <- handleListEvent ev $ results st
          continue $ st { results = r }
+handleEvent st _ = continue st
 
 drawUI :: AppState -> [Widget Name]
 drawUI st = [ searchBox <=> hBorder <=> resultsList ]
