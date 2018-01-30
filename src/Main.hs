@@ -105,7 +105,10 @@ handleEvent st (VtyEvent ev@(EvKey k ms)) = case (k,ms) of
           r <- handleEditorEvent ev $ queryBox st
           let query = strip . unlines . getEditContents $ r
               matchingCandidates = filter (isInfixOf (toLower query) . toLower . snd) . candidates $ st
-              resultsList' = set listElementsL matchingCandidates $ resultsList st
+              selectionIndex = view listSelectedL $ resultsList st
+              resultsList' = resultsList st
+                               & set listElementsL matchingCandidates
+                               & set listSelectedL selectionIndex
           continue $ st { queryBox = r, resultsList = resultsList' }
 
        list = do
