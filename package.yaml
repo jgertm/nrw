@@ -14,9 +14,11 @@ extra-source-files:
 dependencies:
   - base >= 4.7 && < 5
   - brick
+  - mono-traversable
   - optparse-applicative
   - regex
   - regex-with-pcre
+  - text
   - universum
   - unix
   - vty
