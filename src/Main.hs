@@ -32,7 +32,7 @@ main = do
     exitSuccess
 
   -- read stdin
-  input <- repack . lines . toText <$> getContents
+  input <- repack . filter (not . null) . lines . toText <$> getContents
 
   -- apply mask
   let candidates = catMaybes $ map (prepareInput maskingRegex) input
