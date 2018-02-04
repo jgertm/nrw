@@ -38,7 +38,7 @@ main = do
 
   -- render UI
   let st = AppState { queryBox = editorText Query (Just 1) mempty
-                    , resultsList = list Results (map fst . indexed $ candidates) 1
+                    , resultsList = list Results (repack [0..pred $ length candidates]) 1
                     , entries = candidates
                     }
   st' <- withFile "/dev/tty" ReadMode $ \h -> do
@@ -54,7 +54,7 @@ main = do
 inputToEntry :: Maybe RE -> Text -> Maybe Entry
 inputToEntry (Just re) t = do
   (_,[firstGroup]) <- matchCaptures $ t ?=~ re
-  let maskingResult :: Text = capturedText firstGroup
+  let maskingResult = capturedText firstGroup
   pure $ Entry { original = t
                , masked = maskingResult
                , norm = toLower maskingResult
@@ -141,7 +141,7 @@ withList st@AppState{..} ev = do
   r <- handleListEvent ev resultsList
           continue $ st { resultsList = r }
 
-updateSelection f st@AppState{..} = maybe st identity $ do
+updateSelection f st@AppState{..} = fromMaybe st $ do
   sel <- view listSelectedL resultsList
   idx <- indexM (view listElementsL resultsList) sel
   let entries' = modify (\v -> MV.modify v (\e -> let selected' = f $ selected e
@@ -153,7 +153,7 @@ toggleSelection = updateSelection not
 
 
 drawUI :: AppState -> [Widget Name]
-drawUI AppState{..} = [ queryBox' <=> hBorder <=> resultsList' ]
+drawUI AppState{..} = one $ queryBox' <=> hBorder <=> resultsList'
   where queryBox' = (withAttr "prompt" $ txt "λ ") <+> renderEditor (txt . unlines) True queryBox
         query = strip . unlines $ getEditContents queryBox
         resultsList' = padLeftRight 2 $ renderList (\sel -> bool identity (withAttr "selection") sel . drawMatch query . masked . indexEx entries) False resultsList
