@@ -34,7 +34,7 @@ main = do
   input <- repack . lines . toText <$> getContents
 
   -- apply mask
-  let candidates = catMaybes $ map (inputToEntry maskRx) input
+  let candidates = catMaybes $ map (prepareInput maskingRegex) input
 
   -- render UI
   let st = AppState { queryBox = editorText Query (Just 1) mempty
@@ -46,26 +46,26 @@ main = do
     cfg <- standardIOConfig
     customMain (mkVty $ cfg {inputFd = Just fd}) Nothing app st
 
-  traverse_ (putStrLn . original) . filter selected . entries $ st'
+  traverse_ (putStrLn . original) . filter marked . entries $ st'
 
   exitSuccess
 
 
-inputToEntry :: Maybe RE -> Text -> Maybe Entry
-inputToEntry (Just re) t = do
+prepareInput :: Maybe RE -> Text -> Maybe Entry
+prepareInput (Just re) t = do
   (_,[firstGroup]) <- matchCaptures $ t ?=~ re
   let maskingResult = capturedText firstGroup
-  pure $ Entry { original = t
+  pure Entry { original = t
                , masked = maskingResult
                , norm = toLower maskingResult
                , match = Nothing
-               , selected = False
+             , marked = False
                }
-inputToEntry Nothing t = pure $ Entry { original = t
+prepareInput Nothing t = pure Entry { original = t
                                       , masked = t
                                       , norm = toLower t
                                       , match = Nothing
-                                      , selected = False
+                                    , marked = False
                                       }
 
 
@@ -73,20 +73,20 @@ data Entry = Entry { original :: Text
                    , masked   :: Text
                    , norm     :: Text
                    , match    :: Maybe (Text,Text,Text)
-                   , selected :: Bool
+                   , marked   :: Bool
                    }
 
 
 -- COMMAND LINE ARGUMENTS
 
 data Options = Options { version :: Bool
-                       , maskRx  :: Maybe RE
+                       , maskingRegex :: Maybe RE
                        }
 
 options :: Parser Options
 options = Options
   <$> switch (long "version" <> short 'v' <> help "Show version")
-  <*> option (eitherReader $ \rxStr -> compileRegex rxStr >>= pure . Just)
+  <*> option (eitherReader $ compileRegex >=> (pure . Just))
         (long "mask" <> short 'm' <> help "masking (PCRE) regex" <> metavar "REGEX" <> value Nothing)
 
 options' = info (options <**> helper)
@@ -130,7 +130,7 @@ handleEvent st _ = continue st
 withEditor st@AppState{..} ev = do
   r <- handleEditorEvent ev queryBox
   let query = toLower . strip . unlines . getEditContents $ r
-      matchingCandidates = map fst . filter (isInfixOf query . norm . snd) . indexed $ entries
+      matchingCandidates = map fst . filter (liftA2 (||) marked (isInfixOf query . norm) . snd) . indexed $ entries
       selectionIndex = view listSelectedL resultsList
       resultsList' = resultsList
                                & set listElementsL matchingCandidates
@@ -144,8 +144,8 @@ withList st@AppState{..} ev = do
 updateSelection f st@AppState{..} = fromMaybe st $ do
   sel <- view listSelectedL resultsList
   idx <- indexM (view listElementsL resultsList) sel
-  let entries' = modify (\v -> MV.modify v (\e -> let selected' = f $ selected e
-                                                   in e { selected = selected' }) idx) entries
+  let entries' = modify (\v -> MV.modify v (\e -> let selected' = f $ marked e
+                                                   in e { marked = selected' }) idx) entries
   pure $ st { entries = entries' }
 
 forceSelection = updateSelection $ const True
