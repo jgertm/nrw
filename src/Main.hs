@@ -4,15 +4,16 @@
 
 module Main where
 
-import           Universum            hiding (catMaybes, filter, intersperse,
-                                       lines, list, modify, unlines)
+import           Universum            hiding (catMaybes, filter, lines, list,
+                                       modify, splitAt, unlines)
 
 import           Brick
 import           Brick.Widgets.Border
 import           Brick.Widgets.Edit
 import           Brick.Widgets.List
+import           Control.Arrow        ((&&&))
 import           Data.Sequences
-import           Data.Text            (splitOn, strip)
+import           Data.Text            (strip)
 import           Data.Vector          (indexM, indexed, modify)
 import qualified Data.Vector.Mutable  as MV
 import           Graphics.Vty
@@ -152,15 +153,41 @@ forceSelection = updateSelection $ const True
 toggleSelection = updateSelection not
 
 
+layer b f = bool identity f b
+
 drawUI :: AppState -> [Widget Name]
 drawUI AppState{..} = one $ queryBox' <=> hBorder <=> resultsList'
-  where queryBox' = (withAttr "prompt" $ txt "λ ") <+> renderEditor (txt . unlines) True queryBox
-        query = strip . unlines $ getEditContents queryBox
-        resultsList' = padLeftRight 2 $ renderList (\sel -> bool identity (withAttr "selection") sel . drawMatch query . masked . indexEx entries) False resultsList
+  where queryBox' = withAttr "prompt" (txt "λ ") <+> renderEditor (txt . unlines) True queryBox
+        query = strip . unlines . getEditContents $ queryBox
+        resultsList' = renderList (\sel i -> fromMaybe emptyWidget $ do
+                                      entry <- index entries i
+                                      layer (marked entry) (\w -> w <+> padLeft Max (txt "+")) . layer sel (forceAttr "selection")
+                                        <$> if null query
+                                        then pure . drawMarkup . Plain . masked $ entry
+                                        else do
+                                          re <- compileRegexWith BlockInsensitive . repack $ query
+                                          pure $ foldl1 (<+>) . map drawMarkup . markupMatches $ masked entry *=~ re) True resultsList
 
-drawMatch query candidate =
-  let instances = if null query then mempty else splitOn query candidate
-      widgets = intersperse (withAttr "highlight" $ txt query) . map (withAttr "default" . txt) $ instances
-  in if null instances
-     then txt candidate
-     else hBox widgets
+data Markup t = Highlight {unMarkup :: t}
+              | Plain {unMarkup :: t}
+              deriving (Show)
+
+drawMarkup (Highlight t) = withAttr "highlight" $ txt t
+drawMarkup (Plain t)     = withAttr "default" $ txt t
+
+markupMatches :: Matches Text -> [Markup Text]
+markupMatches ms =
+  let idxs = map (captureOffset &&& captureLength)
+           . mainCaptures
+           $ ms
+      markups = go 0 idxs
+              . matchesSource
+              $ ms
+   in filter (not . null . unMarkup) markups
+    where go _ [] _ = mempty
+          go d ((co,cl):rest) t =
+            let (prefix, matchAndSuffix) = splitAt (co - d) t
+                (match, suffix) = splitAt cl matchAndSuffix
+             in mconcat [ [Plain prefix, Highlight match]
+                        , bool mempty [Plain suffix] (null rest)
+                        , go (co+cl) rest suffix]
