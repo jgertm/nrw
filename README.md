@@ -1,5 +1,7 @@
 # nrw
 
+[![asciicast](https://asciinema.org/a/T1mm6MEznICvSDkYkayfQ8pT1.png)](https://asciinema.org/a/T1mm6MEznICvSDkYkayfQ8pT1)
+
 `nrw` (pronounced *narrow*) is a simple utility that allows interactive
 selection of zero or more lines from STDIN.
 
@@ -36,7 +38,8 @@ $ find ~/papers/ -name *.pdf | nrw --mask='/([^/]+.pdf)$' | while read -r pf; do
 
 ### Is it any good?
 
-No.
+[No](https://github.com/jgertm/nrw/blob/master/src/Main.hs#L187-L193).
+
 
 ### Why not use [`percol`](https://github.com/mooz/percol), [`peco`](https://github.com/peco/peco), or [`fzf`](https://github.com/junegunn/fzf)?
 
