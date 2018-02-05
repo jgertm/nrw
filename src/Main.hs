@@ -28,7 +28,7 @@ main = do
   -- read arguments
   Options{..} <- execParser options'
   when version $ do
-    putTextLn "0.0.0"
+    putTextLn "0.1.0"
     exitSuccess
 
   -- read stdin
