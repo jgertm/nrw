@@ -161,11 +161,11 @@ drawUI AppState{..} = one $ queryBox' <=> hBorder <=> resultsList'
         query = strip . unlines . getEditContents $ queryBox
         resultsList' = renderList (\sel i -> fromMaybe emptyWidget $ do
                                       entry <- index entries i
+                                      re <- compileRegexWith BlockInsensitive . repack $ query
                                       layer (marked entry) (\w -> w <+> padLeft Max (txt "+")) . layer sel (forceAttr "selection")
-                                        <$> if null query
+                                        <$> if (null query) || (not . anyMatches $ masked entry *=~ re)
                                         then pure . drawMarkup . Plain . masked $ entry
-                                        else do
-                                          re <- compileRegexWith BlockInsensitive . repack $ query
+                                        else
                                           pure $ foldl1 (<+>) . map drawMarkup . markupMatches $ masked entry *=~ re) True resultsList
 
 data Markup t = Highlight {unMarkup :: t}
