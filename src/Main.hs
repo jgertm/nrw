@@ -42,10 +42,10 @@ main = do
                     , resultsList = list Results (repack [0..pred $ length candidates]) 1
                     , entries = candidates
                     }
-  st' <- withFile "/dev/tty" ReadMode $ \h -> do
+  st' <- withFile "/dev/tty" ReadWriteMode $ \h -> do
     fd <- handleToFd h
     cfg <- standardIOConfig
-    customMain (mkVty $ cfg {inputFd = Just fd}) Nothing app st
+    customMain (mkVty $ cfg {inputFd = Just fd, outputFd = Just fd}) Nothing app st
 
   traverse_ (putStrLn . original) . filter marked . entries $ st'
 
